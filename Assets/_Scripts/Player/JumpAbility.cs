@@ -13,7 +13,8 @@ public class JumpAbility : BaseAbility
     [SerializeField] private float airMoveSpeed;
     [SerializeField] private float maxFallSpeed;
     [SerializeField] private float fallGravity;
-    private int numberOfAvailableJump;
+    private bool hasGroundJumped;
+    private int airJumpsRemaining;
     [Header("Time")] [SerializeField] private float miniumAirTime;
     [SerializeField] private float jumpBufferTime;
     private float jumpBufferCurrentTime;
@@ -37,7 +38,8 @@ public class JumpAbility : BaseAbility
     protected override void Start()
     {
         base.Start();
-        numberOfAvailableJump = numberOfJump;
+        hasGroundJumped = false;
+        airJumpsRemaining = numberOfJump - 1;
         jumpParameterID = Animator.StringToHash(jumpAnimationName);
         verticalVelocityParameterID = Animator.StringToHash(verticalVelocityAnimationName);
         baseGravity = linkedPhysic.RB.gravityScale;
@@ -58,7 +60,8 @@ public class JumpAbility : BaseAbility
         {
             if (linkedPhysic.Grounded && onAirTime < 0)
             {
-                numberOfAvailableJump = numberOfJump;
+                hasGroundJumped = false;
+                airJumpsRemaining = numberOfJump - 1;
                 if (linkedGatherInput.HorizontalInput == 0) linkedStateMachine.ChangeState(State.Idle);
                 else linkedStateMachine.ChangeState(State.Run);
                 return;
@@ -70,7 +73,8 @@ public class JumpAbility : BaseAbility
             {
                 linkedPhysic.RB.linearVelocity = new Vector2(airMoveSpeed * linkedGatherInput.HorizontalInput, jumpForce);
                 onAirTime = miniumAirTime;
-                numberOfAvailableJump = numberOfJump;
+                hasGroundJumped = true;
+                airJumpsRemaining = numberOfJump - 1;
                 DoneJumpCut = false;
             }
         }
@@ -101,16 +105,22 @@ public class JumpAbility : BaseAbility
     {
         if (!IsPermitted) return;
         if(linkedStateMachine.CurrentState == State.Dash) return;
-        if(numberOfAvailableJump <= 0) return; 
-        if (!linkedPhysic.IsStillOnGround)
+        
+        bool isCoyoteActive = linkedPhysic.IsStillOnGround;
+        
+        if (isCoyoteActive && !hasGroundJumped)
+        {
+            hasGroundJumped = true;
+        }
+        else if (airJumpsRemaining > 0)
+        {
+            airJumpsRemaining--;
+        }
+        else
         {
             jumpBufferCurrentTime = Time.time;
-            // buggg
-            numberOfAvailableJump--;
+            return;
         }
-        
-       
-        numberOfAvailableJump--;
         
         linkedPhysic.RB.gravityScale = baseGravity;
         linkedStateMachine.ChangeState(State.Jump);
